@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-urdu-heading: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', Tahoma, system-ui, sans-serif;
+  --font-urdu-body: 'Noto Sans Arabic', 'Noto Nastaliq Urdu', Tahoma, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  direction: rtl;
+  font-family: var(--font-urdu-body);
+}
+
+body {
+  background-color: #FAF8F5;
+  color: #2D1A22;
+  margin: 0;
+  padding: 0;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-urdu-heading);
+  line-height: 1.9 !important;
+}
+
+/* Ensure LTR for numbers, codes, and English inputs */
+.ltr-input {
+  direction: ltr !important;
+  text-align: left !important;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #C69214;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #850E35;
+}
+
+/* Focus outline accessibility */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #850E35;
+  outline-offset: 2px;
+}
