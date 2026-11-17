@@ -108,6 +108,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- 5. Secure Directory View: Only for Approved, Published Members
 DROP VIEW IF EXISTS public.public_directory;
+-- The revised directory changes the previous view's column layout.
+DROP VIEW IF EXISTS public.public_directory;
 CREATE OR REPLACE VIEW public.public_directory AS
 SELECT
     p.id,

@@ -23,11 +23,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, is_suspended')
         .eq('id', user.id)
         .single();
 
-      if (profile?.role !== 'admin') {
+      if (profile?.role !== 'admin' || profile.is_suspended) {
         alert('اس صفحے تک رسائی صرف مجاز ایڈمن کو حاصل ہے۔');
         router.push('/portal/profile');
         return;

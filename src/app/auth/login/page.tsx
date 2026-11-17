@@ -34,11 +34,16 @@ export default function LoginPage() {
 
       // Check user role
       if (data.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, is_suspended')
           .eq('id', data.user.id)
           .single();
+
+        if (profileError || !profile || profile.is_suspended) {
+          await supabase.auth.signOut();
+          throw new Error('Account access unavailable');
+        }
 
         if (profile?.role === 'admin') {
           setPassword('');

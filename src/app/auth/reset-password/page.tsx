@@ -21,8 +21,8 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError('پاس ورڈ کم از کم ۶ حروف پر مشتمل ہونا چاہیے۔');
+    if (password.length < 12) {
+      setError('پاس ورڈ کم از کم ۱۲ حروف پر مشتمل ہونا چاہیے۔');
       return;
     }
 

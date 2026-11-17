@@ -35,8 +35,8 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('پاس ورڈ کم از کم ۶ حروف پر مشتمل ہونا چاہیے۔');
+    if (password.length < 12) {
+      setError('پاس ورڈ کم از کم ۱۲ حروف پر مشتمل ہونا چاہیے۔');
       return;
     }
 
@@ -50,6 +50,10 @@ export default function SignupPage() {
         options: {
           data: {
             display_name: displayName,
+            birth_date: birthDate,
+            gender,
+            city,
+            marital_status: maritalStatus,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -58,23 +62,7 @@ export default function SignupPage() {
       if (authError) throw authError;
 
       if (authData.user) {
-        // 2. Insert profile record
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          display_name: displayName,
-          birth_date: birthDate,
-          gender,
-          city,
-          marital_status: maritalStatus,
-          bio: 'اپنا تعارف یہاں تحریر کریں...',
-          status: 'draft',
-          role: 'member',
-        });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-
+        // A database trigger creates a member-only profile before email confirmation.
         setSuccess(true);
       }
     } catch (err: any) {
@@ -244,12 +232,12 @@ export default function SignupPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-[#3D1D28] mb-1">
-                    پاس ورڈ (کم از کم ۶ حروف)
+                    پاس ورڈ (کم از کم ۱۲ حروف)
                   </label>
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={12}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
