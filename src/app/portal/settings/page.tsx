@@ -147,12 +147,16 @@ export default function SettingsPage() {
     setDeleting(true);
 
     try {
-      // Delete user profile (cascades to all permissions, blocks, messages, requests)
-      const { error } = await supabase.from('profiles').delete().eq('id', profile.id);
-      if (error) throw error;
+      const res = await fetch('/api/user/delete-account', {
+        method: 'POST',
+      });
+      const data = await res.json();
 
-      await supabase.auth.signOut();
-      alert('آپ کا اکاؤنٹ اور تمام متعلقہ ڈیٹا کامیابی سے حذف کر دیا گیا ہے۔');
+      if (!res.ok) {
+        throw new Error(data.error || 'اکاؤنٹ حذف کرنے میں ناکامی ہوئی۔');
+      }
+
+      alert('آپ کا اکاؤنٹ، پیغامات، درخواستیں اور تصاویر مستقل طور پر حذف کر دیے گئے ہیں۔');
       router.push('/');
     } catch (err: any) {
       alert(err.message || 'اکاؤنٹ حذف کرنے میں ناکامی ہوئی۔');

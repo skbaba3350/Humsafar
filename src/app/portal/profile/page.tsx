@@ -67,7 +67,19 @@ export default function ProfilePage() {
         setPartnerPreferences(data.partner_preferences || '');
         setHasDisability(data.has_disability || false);
         setDisabilityNotes(data.disability_notes || '');
-        setAvatarUrl(data.avatar_url || '');
+        
+        if (data.avatar_url) {
+          if (data.avatar_url.startsWith('http')) {
+            setAvatarUrl(data.avatar_url);
+          } else {
+            const { data: signed } = await supabase.storage
+              .from('avatars')
+              .createSignedUrl(data.avatar_url, 3600);
+            setAvatarUrl(signed?.signedUrl || '');
+          }
+        } else {
+          setAvatarUrl('');
+        }
       }
       setLoading(false);
     }
@@ -169,14 +181,21 @@ export default function ProfilePage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      // Update avatar_url with filePath in database
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: filePath })
+        .eq('id', profile.id);
 
-      setAvatarUrl(publicUrlData.publicUrl);
+      // Create signed URL for display from private bucket
+      const { data: signedData } = await supabase.storage
+        .from('avatars')
+        .createSignedUrl(filePath, 3600);
+
+      setAvatarUrl(signedData?.signedUrl || '');
       setMsg({
         type: 'success',
-        text: 'تصویر پرائیویٹ اسٹوریج میں اپلوڈ ہو گئی۔ یہ صرف آپ کی اجازت سے دوسروں کو نظر آئے گی۔',
+        text: 'تصویر پرائیویٹ اسٹوریج میں محفوظ ہو گئی۔ یہ صرف آپ کی اجازت سے دوسروں کو نظر آئے گی۔',
       });
     } catch (err: any) {
       setMsg({

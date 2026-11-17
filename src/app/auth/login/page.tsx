@@ -101,10 +101,11 @@ export default function LoginPage() {
 
           <form className="space-y-5" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-semibold text-[#3D1D28] mb-1">
+              <label htmlFor="login-email" className="block text-sm font-semibold text-[#3D1D28] mb-1">
                 ای میل ایڈریس
               </label>
               <input
+                id="login-email"
                 type="email"
                 required
                 value={email}
@@ -116,7 +117,7 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-semibold text-[#3D1D28]">
+                <label htmlFor="login-password" className="block text-sm font-semibold text-[#3D1D28]">
                   پاس ورڈ
                 </label>
                 <Link
@@ -127,6 +128,7 @@ export default function LoginPage() {
                 </Link>
               </div>
               <input
+                id="login-password"
                 type="password"
                 required
                 value={password}

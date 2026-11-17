@@ -73,12 +73,17 @@ export default function ConversationDetailPage() {
     }
 
     const other = conv.user1_id === user.id ? conv.user2 : conv.user1;
+    if (!other) {
+      alert('مخالف ممبر کا اکاؤنٹ دستیاب نہیں ہے۔');
+      router.push('/portal/messages');
+      return;
+    }
     setOtherUser(other);
 
     // Check if blocked
     const { data: isBlocked } = await supabase
       .from('blocks')
-      .select('*')
+      .select('id')
       .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${other.id}),and(blocker_id.eq.${other.id},blocked_id.eq.${user.id})`);
 
     if (isBlocked && isBlocked.length > 0) {
@@ -106,7 +111,12 @@ export default function ConversationDetailPage() {
       .order('created_at', { ascending: true });
 
     if (msgs) {
-      setMessages(msgs);
+      setMessages((prev) => {
+        if (msgs.length !== prev.length || (msgs.length > 0 && msgs[msgs.length - 1].id !== prev[prev.length - 1]?.id)) {
+          return msgs;
+        }
+        return prev;
+      });
     }
   };
 
@@ -142,11 +152,12 @@ export default function ConversationDetailPage() {
     }
 
     try {
-      await supabase.from('blocks').insert({
+      const { error: blockErr } = await supabase.from('blocks').insert({
         blocker_id: currentUserId,
         blocked_id: otherUser.id,
       });
-      alert('صارف کو بلاک کر دیا گیا۔');
+      if (blockErr) throw blockErr;
+      alert('صارف کو کامیابی سے بلاک کر دیا گیا۔');
       router.push('/portal/messages');
     } catch (err: any) {
       alert(err.message || 'بلاک کرنے میں دشواری ہوئی۔');
@@ -158,7 +169,7 @@ export default function ConversationDetailPage() {
     if (!otherUser || !reportingMsgId) return;
 
     try {
-      await supabase.from('reports').insert({
+      const { error: repErr } = await supabase.from('reports').insert({
         reporter_id: currentUserId,
         reported_id: otherUser.id,
         reason: reportReason as any,
@@ -166,6 +177,7 @@ export default function ConversationDetailPage() {
         reported_message_id: reportingMsgId,
         status: 'pending',
       });
+      if (repErr) throw repErr;
       alert('رپورٹ ایڈمن کو موصول ہو گئی ہے۔ شکریہ۔');
       setReportingMsgId(null);
       setReportDetails('');

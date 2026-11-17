@@ -35,3 +35,8 @@ next-env.d.ts
 # temp testing screenshots & caches
 *_screenshot.png
 extracted_assets/
+__pycache__/
+*.pyc
+*.py
+supabase/.temp/
+ui.png

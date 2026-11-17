@@ -31,15 +31,15 @@ export default function Navbar() {
           <Link href="/" className="hover:text-[#850E35] transition-colors">
             ہوم
           </Link>
-          <a href="#steps" className="hover:text-[#850E35] transition-colors">
+          <Link href="/#steps" className="hover:text-[#850E35] transition-colors">
             طریقہ کار
-          </a>
-          <a href="#privacy" className="hover:text-[#850E35] transition-colors">
+          </Link>
+          <Link href="/#privacy" className="hover:text-[#850E35] transition-colors">
             رازداری
-          </a>
-          <a href="#faq" className="hover:text-[#850E35] transition-colors">
+          </Link>
+          <Link href="/#faq" className="hover:text-[#850E35] transition-colors">
             سوالات
-          </a>
+          </Link>
         </nav>
 
         {/* Left side: Action Buttons */}
@@ -82,27 +82,27 @@ export default function Navbar() {
             >
               ہوم
             </Link>
-            <a
-              href="#steps"
+            <Link
+              href="/#steps"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 text-[#3D1D28] hover:text-[#850E35] border-b border-neutral-100"
             >
               طریقہ کار
-            </a>
-            <a
-              href="#privacy"
+            </Link>
+            <Link
+              href="/#privacy"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 text-[#3D1D28] hover:text-[#850E35] border-b border-neutral-100"
             >
               رازداری
-            </a>
-            <a
-              href="#faq"
+            </Link>
+            <Link
+              href="/#faq"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 text-[#3D1D28] hover:text-[#850E35] border-b border-neutral-100"
             >
               سوالات
-            </a>
+            </Link>
           </div>
           <div className="pt-2 flex flex-col gap-2">
             <Link

@@ -1,6 +1,7 @@
 -- ==========================================================
 -- ہم سفر (Humsafar) - Complete Remote Supabase Setup Script
--- Copy and run this entire script in Supabase Dashboard -> SQL Editor
+-- Includes Full Hardened Security, Anti-Recursion, Column Security,
+-- Strict Request Rules, and Atomic Admin Functions
 -- ==========================================================
 
 -- 1. Profiles Table
@@ -137,7 +138,7 @@ ALTER TABLE public.blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- 11. Helper Functions
+-- 11. Security Definer Helper Functions (No Infinite Recursion)
 CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -146,7 +147,17 @@ BEGIN
         WHERE id = user_id AND role = 'admin'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.is_approved_member(user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = user_id AND status = 'approved' AND is_hidden = FALSE
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 CREATE OR REPLACE FUNCTION public.are_blocked(u1 UUID, u2 UUID)
 RETURNS BOOLEAN AS $$
@@ -157,31 +168,165 @@ BEGIN
            OR (blocker_id = u2 AND blocked_id = u1)
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- 12. RLS Policies
+CREATE OR REPLACE FUNCTION public.has_photo_permission(p_owner_id UUID, p_viewer_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF p_owner_id = p_viewer_id OR public.is_admin(p_viewer_id) THEN
+        RETURN TRUE;
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM public.photo_permissions
+        WHERE granter_id = p_owner_id AND viewer_id = p_viewer_id
+    ) AND NOT public.are_blocked(p_owner_id, p_viewer_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.has_note_permission(p_owner_id UUID, p_viewer_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF p_owner_id = p_viewer_id OR public.is_admin(p_viewer_id) THEN
+        RETURN TRUE;
+    END IF;
+    RETURN EXISTS (
+        SELECT 1 FROM public.note_permissions
+        WHERE granter_id = p_owner_id AND viewer_id = p_viewer_id
+    ) AND NOT public.are_blocked(p_owner_id, p_viewer_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- 12. Profiles Policies
 DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
 CREATE POLICY "Users can read own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
 CREATE POLICY "Admins can read all profiles" ON public.profiles FOR SELECT USING (public.is_admin(auth.uid()));
 
-DROP POLICY IF EXISTS "Members can read approved profiles" ON public.profiles;
-CREATE POLICY "Members can read approved profiles" ON public.profiles FOR SELECT USING (
+DROP POLICY IF EXISTS "Approved members can read other approved profiles" ON public.profiles;
+CREATE POLICY "Approved members can read other approved profiles" ON public.profiles FOR SELECT
+USING (
     status = 'approved' AND is_hidden = FALSE
-    AND EXISTS (SELECT 1 FROM public.profiles my_p WHERE my_p.id = auth.uid() AND my_p.status = 'approved')
+    AND public.is_approved_member(auth.uid())
     AND NOT public.are_blocked(auth.uid(), id)
 );
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id AND role = (SELECT role FROM public.profiles WHERE id = auth.uid()));
-
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT
+WITH CHECK (
+    auth.uid() = id
+    AND role = 'member'
+    AND status IN ('draft', 'pending_review')
+);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE
+USING (auth.uid() = id)
+WITH CHECK (
+    auth.uid() = id
+    AND role = (SELECT role FROM public.profiles WHERE id = auth.uid())
+    AND (
+        status = (SELECT status FROM public.profiles WHERE id = auth.uid())
+        OR (status IN ('draft', 'pending_review') AND (SELECT status FROM public.profiles WHERE id = auth.uid()) IN ('draft', 'pending_review', 'changes_requested'))
+    )
+);
+
+DROP POLICY IF EXISTS "Users can delete own profile" ON public.profiles;
+CREATE POLICY "Users can delete own profile" ON public.profiles FOR DELETE USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Admins can update profiles" ON public.profiles;
 CREATE POLICY "Admins can update profiles" ON public.profiles FOR UPDATE USING (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
+CREATE POLICY "Admins can delete profiles" ON public.profiles FOR DELETE USING (public.is_admin(auth.uid()));
+
+-- 13. Public Directory View for Sensitive Data Separation
+DROP VIEW IF EXISTS public.public_directory;
+CREATE OR REPLACE VIEW public.public_directory AS
+SELECT
+    id, display_name, gender, city, marital_status, bio, interests,
+    partner_preferences, has_disability, is_hidden, status, created_at,
+    EXTRACT(YEAR FROM age(CURRENT_DATE, birth_date))::INT AS age,
+    CASE WHEN public.has_photo_permission(id, auth.uid()) THEN avatar_url ELSE '' END AS avatar_url,
+    CASE WHEN public.has_note_permission(id, auth.uid()) THEN disability_notes ELSE '' END AS disability_notes,
+    public.has_photo_permission(id, auth.uid()) AS has_photo_permission,
+    public.has_note_permission(id, auth.uid()) AS has_note_permission
+FROM public.profiles
+WHERE status = 'approved' AND is_hidden = FALSE;
+
+GRANT SELECT ON public.public_directory TO authenticated;
+
+-- 14. Requests, Conversations, Messages Policies
+DROP POLICY IF EXISTS "Interest requests select" ON public.interest_requests;
+CREATE POLICY "Interest requests select" ON public.interest_requests FOR SELECT
+USING (auth.uid() = sender_id OR auth.uid() = receiver_id OR public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Interest requests insert" ON public.interest_requests;
+CREATE POLICY "Interest requests insert" ON public.interest_requests FOR INSERT
+WITH CHECK (
+    auth.uid() = sender_id
+    AND public.is_approved_member(sender_id)
+    AND public.is_approved_member(receiver_id)
+    AND NOT public.are_blocked(sender_id, receiver_id)
+    AND sender_id <> receiver_id
+    AND status = 'pending'
+);
+
+DROP POLICY IF EXISTS "Interest requests update by sender" ON public.interest_requests;
+CREATE POLICY "Interest requests update by sender" ON public.interest_requests FOR UPDATE
+USING (auth.uid() = sender_id)
+WITH CHECK (
+    auth.uid() = sender_id
+    AND sender_id = (SELECT r.sender_id FROM public.interest_requests r WHERE r.id = id)
+    AND receiver_id = (SELECT r.receiver_id FROM public.interest_requests r WHERE r.id = id)
+    AND status = 'cancelled'
+);
+
+DROP POLICY IF EXISTS "Interest requests update by receiver" ON public.interest_requests;
+CREATE POLICY "Interest requests update by receiver" ON public.interest_requests FOR UPDATE
+USING (auth.uid() = receiver_id)
+WITH CHECK (
+    auth.uid() = receiver_id
+    AND sender_id = (SELECT r.sender_id FROM public.interest_requests r WHERE r.id = id)
+    AND receiver_id = (SELECT r.receiver_id FROM public.interest_requests r WHERE r.id = id)
+    AND status IN ('accepted', 'declined')
+);
+
+DROP POLICY IF EXISTS "Conversations select" ON public.conversations;
+CREATE POLICY "Conversations select" ON public.conversations FOR SELECT
+USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+DROP POLICY IF EXISTS "Messages select" ON public.messages;
+CREATE POLICY "Messages select" ON public.messages FOR SELECT
+USING (
+    EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = conversation_id AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid()))
+    OR (public.is_admin(auth.uid()) AND EXISTS (SELECT 1 FROM public.reports rep WHERE rep.reported_message_id = messages.id))
+);
+
+DROP POLICY IF EXISTS "Messages insert" ON public.messages;
+CREATE POLICY "Messages insert" ON public.messages FOR INSERT
+WITH CHECK (
+    auth.uid() = sender_id AND public.is_approved_member(sender_id)
+    AND EXISTS (
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = conversation_id AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+        AND NOT public.are_blocked(c.user1_id, c.user2_id)
+    )
+);
+
+-- Trigger for conversations.updated_at
+CREATE OR REPLACE FUNCTION public.handle_new_message()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.conversations
+    SET updated_at = now()
+    WHERE id = NEW.conversation_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_message_inserted ON public.messages;
+CREATE TRIGGER on_message_inserted AFTER INSERT ON public.messages FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 
 -- Permissions Policies
 DROP POLICY IF EXISTS "Photo permissions select" ON public.photo_permissions;
@@ -204,45 +349,6 @@ CREATE POLICY "Note permissions insert" ON public.note_permissions FOR INSERT WI
 DROP POLICY IF EXISTS "Note permissions delete" ON public.note_permissions;
 CREATE POLICY "Note permissions delete" ON public.note_permissions FOR DELETE USING (auth.uid() = granter_id);
 
--- Requests Policies
-DROP POLICY IF EXISTS "Interest requests select" ON public.interest_requests;
-CREATE POLICY "Interest requests select" ON public.interest_requests FOR SELECT
-USING (auth.uid() = sender_id OR auth.uid() = receiver_id OR public.is_admin(auth.uid()));
-
-DROP POLICY IF EXISTS "Interest requests insert" ON public.interest_requests;
-CREATE POLICY "Interest requests insert" ON public.interest_requests FOR INSERT
-WITH CHECK (auth.uid() = sender_id AND NOT public.are_blocked(sender_id, receiver_id));
-
-DROP POLICY IF EXISTS "Interest requests update" ON public.interest_requests;
-CREATE POLICY "Interest requests update" ON public.interest_requests FOR UPDATE
-USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
-
--- Conversations Policies
-DROP POLICY IF EXISTS "Conversations select" ON public.conversations;
-CREATE POLICY "Conversations select" ON public.conversations FOR SELECT
-USING (auth.uid() = user1_id OR auth.uid() = user2_id);
-
--- Messages Policies
-DROP POLICY IF EXISTS "Messages select" ON public.messages;
-CREATE POLICY "Messages select" ON public.messages FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM public.conversations c
-        WHERE c.id = conversation_id AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
-    )
-);
-
-DROP POLICY IF EXISTS "Messages insert" ON public.messages;
-CREATE POLICY "Messages insert" ON public.messages FOR INSERT
-WITH CHECK (
-    auth.uid() = sender_id
-    AND EXISTS (
-        SELECT 1 FROM public.conversations c
-        WHERE c.id = conversation_id AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
-        AND NOT public.are_blocked(c.user1_id, c.user2_id)
-    )
-);
-
 -- Blocks & Reports Policies
 DROP POLICY IF EXISTS "Blocks select" ON public.blocks;
 CREATE POLICY "Blocks select" ON public.blocks FOR SELECT USING (auth.uid() = blocker_id);
@@ -254,17 +360,24 @@ CREATE POLICY "Blocks delete" ON public.blocks FOR DELETE USING (auth.uid() = bl
 DROP POLICY IF EXISTS "Reports select" ON public.reports;
 CREATE POLICY "Reports select" ON public.reports FOR SELECT USING (auth.uid() = reporter_id OR public.is_admin(auth.uid()));
 DROP POLICY IF EXISTS "Reports insert" ON public.reports;
-CREATE POLICY "Reports insert" ON public.reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+CREATE POLICY "Reports insert" ON public.reports FOR INSERT WITH CHECK (
+    auth.uid() = reporter_id AND reporter_id <> reported_id
+    AND (
+        reported_message_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
+            WHERE m.id = reported_message_id AND m.sender_id = reported_id AND (c.user1_id = reporter_id OR c.user2_id = reporter_id)
+        )
+    )
+);
 DROP POLICY IF EXISTS "Reports update" ON public.reports;
 CREATE POLICY "Reports update" ON public.reports FOR UPDATE USING (public.is_admin(auth.uid()));
 
--- Audit Logs Policy
 DROP POLICY IF EXISTS "Audit logs select" ON public.admin_audit_logs;
 CREATE POLICY "Audit logs select" ON public.admin_audit_logs FOR SELECT USING (public.is_admin(auth.uid()));
 DROP POLICY IF EXISTS "Audit logs insert" ON public.admin_audit_logs;
 CREATE POLICY "Audit logs insert" ON public.admin_audit_logs FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
 
--- 13. Atomic function to accept interest request and create conversation
+-- 15. Atomic procedures for Requests & Admins
 CREATE OR REPLACE FUNCTION public.accept_interest_request(req_id UUID)
 RETURNS UUID AS $$
 DECLARE
@@ -305,7 +418,39 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 14. Private Storage Bucket Setup for Avatars
+CREATE OR REPLACE FUNCTION public.admin_process_profile(target_profile_id UUID, new_status TEXT, note TEXT)
+RETURNS VOID AS $$
+DECLARE
+    cur_admin UUID := auth.uid();
+BEGIN
+    IF NOT public.is_admin(cur_admin) THEN RAISE EXCEPTION 'Only administrators can perform this action'; END IF;
+    IF new_status NOT IN ('approved', 'changes_requested', 'suspended') THEN RAISE EXCEPTION 'Invalid status transition'; END IF;
+
+    UPDATE public.profiles SET status = new_status, review_notes = note, updated_at = now() WHERE id = target_profile_id;
+    INSERT INTO public.admin_audit_logs (admin_id, target_id, action, details)
+    VALUES (cur_admin, target_profile_id, 'Profile status changed to: ' || new_status, note);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.admin_resolve_report(target_report_id UUID, new_status TEXT, note TEXT)
+RETURNS VOID AS $$
+DECLARE
+    cur_admin UUID := auth.uid();
+    r_record RECORD;
+BEGIN
+    IF NOT public.is_admin(cur_admin) THEN RAISE EXCEPTION 'Only administrators can perform this action'; END IF;
+    IF new_status NOT IN ('resolved', 'dismissed') THEN RAISE EXCEPTION 'Invalid report status'; END IF;
+
+    SELECT * INTO r_record FROM public.reports WHERE id = target_report_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Report not found'; END IF;
+
+    UPDATE public.reports SET status = new_status, admin_notes = note, updated_at = now() WHERE id = target_report_id;
+    INSERT INTO public.admin_audit_logs (admin_id, target_id, action, details)
+    VALUES (cur_admin, r_record.reported_id, 'Report marked as ' || new_status, note);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Storage Bucket Setup
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('avatars', 'avatars', false, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO NOTHING;
@@ -328,18 +473,37 @@ USING (
     bucket_id = 'avatars' AND (
         auth.uid()::text = (storage.foldername(name))[1]
         OR public.is_admin(auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM public.photo_permissions pp
-            WHERE pp.granter_id::text = (storage.foldername(name))[1]
-            AND pp.viewer_id = auth.uid()
-            AND NOT public.are_blocked(auth.uid(), pp.granter_id)
-        )
+        OR public.has_photo_permission((storage.foldername(name))[1]::UUID, auth.uid())
     )
 );
 
--- ==========================================================
--- 15. SEED DATA (5 Test Accounts with Password: Password123!)
--- ==========================================================
+-- Trigger for auto profile on auth signup
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    d_name TEXT;
+    b_date DATE;
+    gen TEXT;
+    c_city TEXT;
+    m_status TEXT;
+BEGIN
+    d_name := COALESCE(NEW.raw_user_meta_data->>'display_name', 'صارف');
+    b_date := COALESCE((NEW.raw_user_meta_data->>'birth_date')::DATE, '2000-01-01'::DATE);
+    gen := COALESCE(NEW.raw_user_meta_data->>'gender', 'female');
+    c_city := COALESCE(NEW.raw_user_meta_data->>'city', 'نامعلوم');
+    m_status := COALESCE(NEW.raw_user_meta_data->>'marital_status', 'unmarried');
+
+    INSERT INTO public.profiles (id, display_name, birth_date, gender, city, marital_status, bio, status, role)
+    VALUES (NEW.id, d_name, b_date, gen, c_city, m_status, 'اپنا تعارف تحریر کریں...', 'draft', 'member')
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+-- Seed Data (5 Accounts with Password: Password123!)
 DO $$
 DECLARE
     admin_id UUID := '11111111-1111-1111-1111-111111111111';
@@ -354,41 +518,15 @@ BEGIN
         phone_change, phone_change_token, email_change_token_current, reauthentication_token,
         raw_app_meta_data, raw_user_meta_data, created_at, updated_at
     ) VALUES
-    (
-        '00000000-0000-0000-0000-000000000000', admin_id, 'authenticated', 'authenticated',
-        'admin@humsafar.local', crypt('Password123!', gen_salt('bf')), now(),
-        '', '', '', '', '', '', '', '',
-        '{"provider":"email","providers":["email"]}', '{"display_name":"ایڈمن منتظم"}', now(), now()
-    ),
-    (
-        '00000000-0000-0000-0000-000000000000', tayyaba_id, 'authenticated', 'authenticated',
-        'tayyaba@humsafar.local', crypt('Password123!', gen_salt('bf')), now(),
-        '', '', '', '', '', '', '', '',
-        '{"provider":"email","providers":["email"]}', '{"display_name":"طیبہ فاروق"}', now(), now()
-    ),
-    (
-        '00000000-0000-0000-0000-000000000000', hamza_id, 'authenticated', 'authenticated',
-        'hamza@humsafar.local', crypt('Password123!', gen_salt('bf')), now(),
-        '', '', '', '', '', '', '', '',
-        '{"provider":"email","providers":["email"]}', '{"display_name":"حمزہ رشید"}', now(), now()
-    ),
-    (
-        '00000000-0000-0000-0000-000000000000', imran_id, 'authenticated', 'authenticated',
-        'imran@humsafar.local', crypt('Password123!', gen_salt('bf')), now(),
-        '', '', '', '', '', '', '', '',
-        '{"provider":"email","providers":["email"]}', '{"display_name":"عمران شبیر"}', now(), now()
-    ),
-    (
-        '00000000-0000-0000-0000-000000000000', fatima_id, 'authenticated', 'authenticated',
-        'fatima@humsafar.local', crypt('Password123!', gen_salt('bf')), now(),
-        '', '', '', '', '', '', '', '',
-        '{"provider":"email","providers":["email"]}', '{"display_name":"فاطمہ نور"}', now(), now()
-    )
+    ('00000000-0000-0000-0000-000000000000', admin_id, 'authenticated', 'authenticated', 'admin@humsafar.local', crypt('Password123!', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}', '{"display_name":"ایڈمن منتظم"}', now(), now()),
+    ('00000000-0000-0000-0000-000000000000', tayyaba_id, 'authenticated', 'authenticated', 'tayyaba@humsafar.local', crypt('Password123!', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}', '{"display_name":"طیبہ فاروق"}', now(), now()),
+    ('00000000-0000-0000-0000-000000000000', hamza_id, 'authenticated', 'authenticated', 'hamza@humsafar.local', crypt('Password123!', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}', '{"display_name":"حمزہ رشید"}', now(), now()),
+    ('00000000-0000-0000-0000-000000000000', imran_id, 'authenticated', 'authenticated', 'imran@humsafar.local', crypt('Password123!', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}', '{"display_name":"عمران شبیر"}', now(), now()),
+    ('00000000-0000-0000-0000-000000000000', fatima_id, 'authenticated', 'authenticated', 'fatima@humsafar.local', crypt('Password123!', gen_salt('bf')), now(), '', '', '', '', '', '', '', '', '{"provider":"email","providers":["email"]}', '{"display_name":"فاطمہ نور"}', now(), now())
     ON CONFLICT (id) DO NOTHING;
 
-    INSERT INTO auth.identities (
-        id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
-    ) VALUES
+    INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+    VALUES
     (admin_id, admin_id, json_build_object('sub', admin_id::text, 'email', 'admin@humsafar.local'), 'email', admin_id::text, now(), now(), now()),
     (tayyaba_id, tayyaba_id, json_build_object('sub', tayyaba_id::text, 'email', 'tayyaba@humsafar.local'), 'email', tayyaba_id::text, now(), now(), now()),
     (hamza_id, hamza_id, json_build_object('sub', hamza_id::text, 'email', 'hamza@humsafar.local'), 'email', hamza_id::text, now(), now(), now()),
@@ -397,55 +535,15 @@ BEGIN
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO public.profiles (
-        id, display_name, birth_date, gender, city, marital_status, bio, interests,
-        partner_preferences, has_disability, disability_notes, avatar_url,
-        status, review_notes, is_hidden, role
+        id, display_name, birth_date, gender, city, marital_status, bio, interests, partner_preferences,
+        has_disability, disability_notes, avatar_url, status, review_notes, is_hidden, role
     ) VALUES
-    (
-        admin_id, 'ایڈمن منتظم', '1990-01-01', 'male', 'اسلام آباد', 'unmarried',
-        'ہم سفر پورٹل کی انتظامیہ اور کوالٹی اشورینس۔', ARRAY['انتظامیہ', 'کتابیں'],
-        '', false, '', '', 'approved', '', false, 'admin'
-    ),
-    (
-        tayyaba_id, 'طیبہ فاروق', '1998-05-14', 'female', 'لاہور', 'unmarried',
-        'سافٹ ویئر انجینئر ہوں۔ خود مختار زندگی گزارتی ہوں۔ کتابیں پڑھنا اور باغبانی پسند ہے۔ ایک باوقار، باشعور اور مخلص شریکِ حیات مطلوب ہے جو رشتوں میں برابری اور عزت پر یقین رکھتا ہو۔',
-        ARRAY['کتابیں', 'باغبانی', 'ٹیکنالوجی', 'سفر'],
-        'تعلیم یافتہ، سلجھا ہوا اور مثبت سوچ کا حامل فرد ہو۔',
-        true, 'بچپن سے وہیل چیئر استعمال کرتی ہوں۔ روزمرہ کے امور اور دفتری کام خود مختاری سے سنبھالتی ہوں۔ قابلِ رسائی ماحول ترجیح ہے۔',
-        '/assets/demo-tayyaba.png',
-        'approved', 'پروفائل منظور ہے', false, 'member'
-    ),
-    (
-        hamza_id, 'حمزہ رشید', '1992-09-20', 'male', 'اسلام آباد', 'divorced',
-        'بینکنگ کے شعبے سے وابستہ ہوں۔ باہمی عزت اور ذہنی ہم آہنگی کو شادی کی بنیاد سمجھتا ہوں۔ سادگی اور شفافیت پسند ہے۔',
-        ARRAY['سیاحت', 'فٹنس', 'فوٹوگرافی'],
-        'سنجیدہ، صابر اور نیک دل شریکِ حیات ہو۔ بچوں کے حوالے سے باہمی مشاورت سے فیصلہ ہو گا۔',
-        false, '', '/assets/demo-hamza.png',
-        'approved', 'پروفائل منظور ہے', false, 'member'
-    ),
-    (
-        imran_id, 'عمران شبیر', '1988-02-10', 'male', 'کراچی', 'widowed',
-        'اپنا کاروبار ہے۔ شریکِ حیات کی وفات کے بعد زندگی میں دوبارہ سکون، محبت اور مخلص ساتھی کی تلاش ہے۔ فیملی اقدار عزیز ہیں۔',
-        ARRAY['بزنس', 'سیر و تفریح', 'مطالعہ'],
-        'گھریلو اور شائستہ طبیعت کی حامل خاتون، جو رشتوں کی قدر دان ہو۔',
-        false, '', '/assets/demo-imran.png',
-        'approved', 'پروفائل منظور ہے', false, 'member'
-    ),
-    (
-        fatima_id, 'فاطمہ نور', '1997-11-01', 'female', 'راولپنڈی', 'unmarried',
-        'تعلیمی ادارے میں تدریس سے منسلک ہوں۔ دینی و اخلاقی اقدار کا احترام کرتی ہوں۔',
-        ARRAY['تدریس', 'دستکاری', 'شاعری'],
-        'مخلص، باعمل اور باوقار خاندان کا فرد ہو۔',
-        false, '', '',
-        'pending_review', '', false, 'member'
-    )
+    (admin_id, 'ایڈمن منتظم', '1990-01-01', 'male', 'اسلام آباد', 'unmarried', 'ہم سفر پورٹل کی انتظامیہ۔', ARRAY['انتظامیہ'], '', false, '', '', 'approved', '', false, 'admin'),
+    (tayyaba_id, 'طیبہ فاروق', '1998-05-14', 'female', 'لاہور', 'unmarried', 'سافٹ ویئر انجینئر ہوں۔ خود مختار زندگی گزارتی ہوں۔ وہیل چیئر استعمال کرتی ہوں۔ ایک باوقار اور مخلص شریکِ حیات مطلوب ہے۔', ARRAY['کتابیں', 'ٹیکنالوجی'], 'تعلیم یافتہ اور مثبت سوچ کا حامل فرد ہو۔', true, 'بچپن سے وہیل چیئر استعمال کرتی ہوں۔ روزمرہ کے امور خود سنبھالتی ہوں۔ قابلِ رسائی ماحول ترجیح ہے۔', '/assets/demo-tayyaba.png', 'approved', 'پروفائل منظور ہے', false, 'member'),
+    (hamza_id, 'حمزہ رشید', '1992-09-20', 'male', 'اسلام آباد', 'divorced', 'بینکنگ کے شعبے سے وابستہ ہوں۔ باہمی عزت اور سادگی پسند ہے۔', ARRAY['سیاحت', 'فوٹوگرافی'], 'سنجیدہ اور صابر شریکِ حیات ہو۔', false, '', '/assets/demo-hamza.png', 'approved', 'پروفائل منظور ہے', false, 'member'),
+    (imran_id, 'عمران شبیر', '1988-02-10', 'male', 'کراچی', 'widowed', 'اپنا کاروبار ہے۔ شریکِ حیات کی وفات کے بعد زندگی میں مخلص ساتھی کی تلاش ہے۔', ARRAY['بزنس', 'مطالعہ'], 'شائستہ طبیعت کی حامل خاتون۔', false, '', '/assets/demo-imran.png', 'approved', 'پروفائل منظور ہے', false, 'member'),
+    (fatima_id, 'فاطمہ نور', '1997-11-01', 'female', 'راولپنڈی', 'unmarried', 'تدریس سے منسلک ہوں۔ دینی اقدار کا احترام کرتی ہوں۔', ARRAY['تدریس'], 'مخلص اور باوقار خاندان کا فرد ہو۔', false, '', '', 'pending_review', '', false, 'member')
     ON CONFLICT (id) DO UPDATE SET
-        display_name = EXCLUDED.display_name,
-        birth_date = EXCLUDED.birth_date,
-        city = EXCLUDED.city,
-        marital_status = EXCLUDED.marital_status,
-        bio = EXCLUDED.bio,
-        status = EXCLUDED.status,
-        role = EXCLUDED.role;
-
+        display_name = EXCLUDED.display_name, birth_date = EXCLUDED.birth_date, city = EXCLUDED.city,
+        marital_status = EXCLUDED.marital_status, bio = EXCLUDED.bio, status = EXCLUDED.status, role = EXCLUDED.role;
 END $$;

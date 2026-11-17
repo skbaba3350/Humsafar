@@ -118,12 +118,31 @@ export default function RequestsPage() {
 
   const handleGrantPhoto = async (otherUserId: string) => {
     try {
-      const { error } = await supabase.from('photo_permissions').upsert({
-        granter_id: currentUserId,
-        viewer_id: otherUserId,
-      });
+      const { error } = await supabase.from('photo_permissions').upsert(
+        {
+          granter_id: currentUserId,
+          viewer_id: otherUserId,
+        },
+        { onConflict: 'granter_id,viewer_id' }
+      );
       if (error) throw error;
       alert('تصویر دیکھنے کی اجازت فراہم کر دی گئی۔');
+    } catch (err: any) {
+      alert(err.message || 'اجازت دینے میں مسئلہ پیش آیا۔');
+    }
+  };
+
+  const handleGrantNote = async (otherUserId: string) => {
+    try {
+      const { error } = await supabase.from('note_permissions').upsert(
+        {
+          granter_id: currentUserId,
+          viewer_id: otherUserId,
+        },
+        { onConflict: 'granter_id,viewer_id' }
+      );
+      if (error) throw error;
+      alert('معذوری کے نجی نوٹس دیکھنے کی اجازت فراہم کر دی گئی۔');
     } catch (err: any) {
       alert(err.message || 'اجازت دینے میں مسئلہ پیش آیا۔');
     }
@@ -251,6 +270,15 @@ export default function RequestsPage() {
                           title="اس ممبر کو اپنی نجی تصویر دیکھنے کی اجازت دیں"
                         >
                           تصویر دکھانے کی اجازت دیں
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleGrantNote(sender.id)}
+                          className="px-3 py-2 bg-[#FAF6F0] hover:bg-[#F2ECE4] text-[#850E35] border border-[#850E35]/20 rounded-xl text-xs font-medium transition"
+                          title="اس ممبر کو اپنے نجی معذوری نوٹس دیکھنے کی اجازت دیں"
+                        >
+                          معذوری نوٹس کی اجازت دیں
                         </button>
                       </>
                     ) : req.status === 'accepted' ? (

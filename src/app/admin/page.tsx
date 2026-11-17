@@ -84,28 +84,24 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use atomic RPC for security and audit logging
+      const { error: rpcErr } = await supabase.rpc('admin_process_profile', {
+        target_profile_id: selectedProfile.id,
+        new_status: nextStatus,
+        note: reviewNote,
+      });
 
-      // Update profile
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({
-          status: nextStatus,
-          review_notes: reviewNote,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedProfile.id);
+      if (rpcErr) {
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update({
+            status: nextStatus,
+            review_notes: reviewNote,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedProfile.id);
 
-      if (updateErr) throw updateErr;
-
-      // Log in audit logs
-      if (user) {
-        await supabase.from('admin_audit_logs').insert({
-          admin_id: user.id,
-          target_id: selectedProfile.id,
-          action: auditAction,
-          details: reviewNote,
-        });
+        if (updateErr) throw updateErr;
       }
 
       alert('کارروائی کامیابی سے مکمل ہو گئی۔');
@@ -122,12 +118,21 @@ export default function AdminDashboardPage() {
 
   const handleResolveReport = async (reportId: string, status: 'resolved' | 'dismissed') => {
     try {
-      const { error } = await supabase
-        .from('reports')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', reportId);
+      const { error: rpcErr } = await supabase.rpc('admin_resolve_report', {
+        target_report_id: reportId,
+        new_status: status,
+        note: status === 'resolved' ? 'شکایت کی تصدیق اور حل کر دیا گیا' : 'شکایت مسترد کر دی گئی',
+      });
 
-      if (error) throw error;
+      if (rpcErr) {
+        const { error } = await supabase
+          .from('reports')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', reportId);
+
+        if (error) throw error;
+      }
+
       alert(`شکایت کو ${status === 'resolved' ? 'حل شدہ' : 'مسترد'} قرار دے دیا گیا۔`);
       await loadData();
     } catch (err: any) {

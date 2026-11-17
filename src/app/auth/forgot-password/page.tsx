@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/portal/profile`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       });
       if (resetErr) throw resetErr;
       setMsg('پاس ورڈ ری سیٹ کا لنک آپ کے ای میل پر بھیج دیا گیا ہے۔');
