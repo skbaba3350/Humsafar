@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { UserPlus, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { calculateAge } from '@/lib/utils';
+import { authEmailErrorMessage } from '@/lib/auth-errors';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,9 +24,11 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const submitting = useRef(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     setError('');
 
     // Check age 18+
@@ -40,12 +43,13 @@ export default function SignupPage() {
       return;
     }
 
+    submitting.current = true;
     setLoading(true);
 
     try {
       // 1. Supabase auth signup
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
@@ -65,9 +69,10 @@ export default function SignupPage() {
         // A database trigger creates a member-only profile before email confirmation.
         setSuccess(true);
       }
-    } catch (err: any) {
-      setError(err.message || 'رجسٹریشن کے عمل میں رکاوٹ آئی ہے۔ براہ کرم فیلڈز چیک کریں۔');
+    } catch (err: unknown) {
+      setError(authEmailErrorMessage(err, 'رجسٹریشن مکمل نہیں ہو سکی۔ براہِ کرم اپنی معلومات اور انٹرنیٹ کنکشن چیک کریں۔'));
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -107,33 +112,24 @@ export default function SignupPage() {
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <h3 className="text-xl font-bold text-[#3D1D28]">
-                رجسٹریشن کامیابی سے مکمل ہوئی!
+                اپنی ای میل کی تصدیق کریں
               </h3>
               <p className="text-sm text-[#5C3F4B] max-w-md mx-auto leading-relaxed">
-                ہم نے آپ کے ای میل ایڈریس پر تصدیقی لنک بھیج دیا ہے۔ لوکل ان باکس چیک کرنے کے لیے{' '}
-                <a
-                  href="http://127.0.0.1:56324"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[#850E35] font-bold underline"
-                >
-                  میل پٹ ان باکس (Mailpit)
-                </a>{' '}
-                کھولیں، یا سیدھا لاگ اِن کریں۔
+                اپنے ان باکس اور اسپیم فولڈر میں تصدیقی لنک چیک کریں۔ ای میل کی تصدیق کے بعد لاگ اِن کریں۔ اگر پہلے سے اکاؤنٹ موجود ہے تو لاگ اِن یا پاس ورڈ بحال کرنے کا اختیار استعمال کریں۔
               </p>
               <div className="pt-4">
                 <Link
                   href="/auth/login"
                   className="inline-block px-6 py-2.5 bg-[#850E35] text-white font-bold rounded-xl hover:bg-[#6D092A] transition"
                 >
-                  ابھی لاگ اِن کریں
+                  لاگ اِن صفحہ کھولیں
                 </Link>
               </div>
             </div>
           ) : (
             <>
               {error && (
-                <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
+                <div role="alert" className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 shrink-0" />
                   <span>{error}</span>
                 </div>

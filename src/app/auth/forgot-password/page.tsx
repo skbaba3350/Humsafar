@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { authEmailErrorMessage } from '@/lib/auth-errors';
 import { KeyRound, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
@@ -12,22 +13,26 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const submitting = useRef(false);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setMsg('');
     setError('');
     setLoading(true);
 
     try {
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       });
       if (resetErr) throw resetErr;
-      setMsg('پاس ورڈ ری سیٹ کا لنک آپ کے ای میل پر بھیج دیا گیا ہے۔');
-    } catch (err: any) {
-      setError(err.message || 'ری سیٹ لنک بھیجنے میں مسئلہ پیش آیا۔');
+      setMsg('اگر اس ای میل پر اکاؤنٹ موجود ہے تو پاس ورڈ بحال کرنے کا لنک ارسال کر دیا گیا ہے۔ ان باکس اور اسپیم فولڈر چیک کریں۔');
+    } catch (err: unknown) {
+      setError(authEmailErrorMessage(err, 'پاس ورڈ بحال کرنے کا لنک نہیں بھیجا جا سکا۔ براہِ کرم بعد میں دوبارہ کوشش کریں۔'));
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -53,7 +58,7 @@ export default function ForgotPasswordPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-md rounded-2xl border border-[#E8DFD5] sm:px-10">
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
+            <div role="alert" className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <span>{error}</span>
             </div>
