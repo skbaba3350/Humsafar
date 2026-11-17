@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LogIn, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { LogIn, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,17 +15,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
-    setMsg('');
     setLoading(true);
 
     try {
       const { data, error: signInErr } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -42,21 +41,18 @@ export default function LoginPage() {
           .single();
 
         if (profile?.role === 'admin') {
-          router.push('/admin');
+          setPassword('');
+          router.replace('/admin');
         } else {
-          router.push('/portal/profile');
+          setPassword('');
+          router.replace('/portal/profile');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'لاگ اِن میں دشواری ہوئی۔ براہ کرم تفصیلات دوبارہ چیک کریں۔');
+    } catch {
+      setError('لاگ اِن میں دشواری ہوئی۔ براہ کرم تفصیلات دوبارہ چیک کریں۔');
     } finally {
       setLoading(false);
     }
-  };
-
-  const quickFill = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Password123!');
   };
 
   return (
@@ -86,16 +82,9 @@ export default function LoginPage() {
         <div className="bg-white py-8 px-6 shadow-md rounded-2xl border border-[#E8DFD5] sm:px-10">
           
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
+            <div role="alert" className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <span>{error}</span>
-            </div>
-          )}
-
-          {msg && (
-            <div className="mb-5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-              <span>{msg}</span>
             </div>
           )}
 
@@ -106,6 +95,10 @@ export default function LoginPage() {
               </label>
               <input
                 id="login-email"
+                name="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 type="email"
                 required
                 value={email}
@@ -129,6 +122,8 @@ export default function LoginPage() {
               </div>
               <input
                 id="login-password"
+                name="password"
+                autoComplete="current-password"
                 type="password"
                 required
                 value={password}
@@ -148,42 +143,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Access Bar */}
-          <div className="mt-8 pt-6 border-t border-[#F0E6DC]">
-            <p className="text-xs text-center text-[#7A5B67] font-semibold mb-3">
-              ⚡ لوکل پائلٹ ٹیسٹنگ کے لیے فوری اکاؤنٹس:
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => quickFill('tayyaba@humsafar.local')}
-                className="p-2 text-right bg-[#FCE6EC] hover:bg-[#FAD1DD] text-[#6D092A] rounded-lg font-medium transition"
-              >
-                طیبہ (معذور/وہیل چیئر)
-              </button>
-              <button
-                type="button"
-                onClick={() => quickFill('hamza@humsafar.local')}
-                className="p-2 text-right bg-[#FDECE2] hover:bg-[#F8D8C5] text-[#8C3A0D] rounded-lg font-medium transition"
-              >
-                حمزہ (طلاق یافتہ)
-              </button>
-              <button
-                type="button"
-                onClick={() => quickFill('imran@humsafar.local')}
-                className="p-2 text-right bg-[#EFE8F7] hover:bg-[#E2D2F2] text-[#4F2582] rounded-lg font-medium transition"
-              >
-                عمران (بیوہ/رنڈوا)
-              </button>
-              <button
-                type="button"
-                onClick={() => quickFill('admin@humsafar.local')}
-                className="p-2 text-right bg-[#35082A] text-white hover:bg-[#25041C] rounded-lg font-medium transition"
-              >
-                ایڈمن پورٹل
-              </button>
-            </div>
-          </div>
 
         </div>
 
