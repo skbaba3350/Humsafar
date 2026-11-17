@@ -364,13 +364,16 @@ export default function BrowsePage() {
                     </div>
                   </div>
 
-                  {/* Badges: Disability, etc. */}
-                  {member.has_disability && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-[#EFE8F7] text-[#4F2582] text-xs font-semibold rounded-full">
-                      <Accessibility className="w-3.5 h-3.5" />
-                      <span>معذوری / وہیل چیئر صارف</span>
-                    </div>
-                  )}
+                  {/* Verified Review Indicator (Accurately describes completed review without guaranteeing character or safety) */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-semibold rounded-full"
+                      title="اس رکن کے حوالے سے اہلیت اور بنیادی تصدیق مکمل ہوئی ہے۔ یہ فرد کے کردار، نیت یا رشتے کی موزونیت کی ضمانت نہیں۔"
+                    >
+                      <span>✓</span>
+                      <span>تصدیق شدہ رکنیت (حقیقی حوالہ)</span>
+                    </span>
+                  </div>
 
                   {/* Bio */}
                   <div className="mt-3">
@@ -390,18 +393,6 @@ export default function BrowsePage() {
                           {int}
                         </span>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Private Disability Note ONLY if permitted by database view */}
-                  {member.has_disability && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-[#FAF7FC] border border-[#E2D2F2] text-xs text-[#4F2582]">
-                      <span className="font-bold">معذوری نوٹ:</span>{' '}
-                      {member.has_note_permission && member.disability_notes ? (
-                        member.disability_notes
-                      ) : (
-                        <span className="italic text-[#7E57A0]">نجی معلومات (صرف اجازت ملنے پر ظاہر ہوں گی)</span>
-                      )}
                     </div>
                   )}
                 </div>

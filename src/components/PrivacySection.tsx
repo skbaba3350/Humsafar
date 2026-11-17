@@ -1,12 +1,12 @@
-import { Image as ImageIcon, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Image as ImageIcon, MessageSquare, ShieldCheck, Lock } from 'lucide-react';
 
 export default function PrivacySection() {
   return (
     <section id="privacy" className="py-14 md:py-18 bg-[#35082A] text-white px-4 sm:px-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto space-y-8">
         
         {/* Title with decorative lines */}
-        <div className="flex items-center justify-center gap-4 mb-12 sm:mb-14">
+        <div className="flex items-center justify-center gap-4">
           <span className="hidden sm:inline-block h-px w-16 md:w-28 bg-[#D4AF37]/60"></span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#FFF6EB] text-center">
             آپ کی معلومات، آپ کے اختیار میں
@@ -23,7 +23,7 @@ export default function PrivacySection() {
               <ImageIcon className="w-7 h-7 text-[#E5B842]" />
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-[#FFF3E3]">
-              تصویر آپ کی اجازت سے
+              تصویر آپ کی صریح اجازت سے
             </h3>
           </div>
 
@@ -33,7 +33,7 @@ export default function PrivacySection() {
               <MessageSquare className="w-7 h-7 text-[#E5B842]" />
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-[#FFF3E3]">
-              گفتگو باہمی رضامندی سے
+              گفتگو باہمی منظوری اور رضامندی سے
             </h3>
           </div>
 
@@ -43,10 +43,20 @@ export default function PrivacySection() {
               <ShieldCheck className="w-7 h-7 text-[#E5B842]" />
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-[#FFF3E3]">
-              بلاک اور رپورٹ کی سہولت
+              بلاک، رپورٹ اور پروفائل چھپانے کا حق
             </h3>
           </div>
 
+        </div>
+
+        {/* Sensitive Privacy Guarantee & Disclaimer Banner */}
+        <div className="bg-white/10 rounded-2xl p-6 border border-[#D4AF37]/30 text-center space-y-3 max-w-3xl mx-auto">
+          <p className="text-base sm:text-lg text-[#FFF3E3] font-bold">
+            آپ کی نجی معلومات اور حوالہ دینے والوں کی تفصیل دوسرے ممبرز کو نہیں دکھائی جائے گی۔
+          </p>
+          <p className="text-xs sm:text-sm text-[#F7DFD4] leading-relaxed">
+            منظوری کسی فرد کے کردار، نیت یا رشتے کی موزونیت کی ضمانت نہیں۔ ہر اگلا قدم آپ کی اپنی رضامندی سے ہوگا۔
+          </p>
         </div>
 
       </div>

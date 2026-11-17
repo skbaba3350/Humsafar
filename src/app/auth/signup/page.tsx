@@ -97,8 +97,11 @@ export default function SignupPage() {
           />
         </Link>
         <h2 className="text-2xl sm:text-3xl font-bold text-[#3D1D28]">
-          اپنا نیا پروفائل بنائیں
+          رکنیت کے لیے اکاؤنٹ بنائیں
         </h2>
+        <p className="mt-2 text-xs sm:text-sm text-[#850E35] font-semibold bg-[#FAF0E6] p-2.5 rounded-xl border border-[#850E35]/20 max-w-md mx-auto">
+          ہم سفر خصوصی طور پر معذوری کے ساتھ زندگی گزارنے والے ۱۸ سال یا زائد عمر کے بالغ افراد کے لیے ہے۔ رجسٹریشن کے بعد حقیقی حوالے سے تصدیق درکار ہوگی۔
+        </p>
         <p className="mt-2 text-sm text-[#5C3F4B]">
           پہلے سے اکاؤنٹ موجود ہے؟{' '}
           <Link href="/auth/login" className="font-bold text-[#850E35] hover:underline">

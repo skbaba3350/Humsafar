@@ -30,7 +30,7 @@ export default function HeroSection() {
         <div className="md:col-span-7 flex flex-col items-start text-right space-y-4">
           <h1
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-[#FFF8EE] mb-2"
-            style={{ lineHeight: 2.3 }}
+            style={{ lineHeight: 2.1 }}
           >
             ایک خوبصورت نئے
             <br />
@@ -38,10 +38,13 @@ export default function HeroSection() {
           </h1>
           
           <p
-            className="text-base sm:text-lg md:text-xl text-[#F9DFD8] max-w-xl font-normal pt-2"
-            style={{ lineHeight: 2.0 }}
+            className="text-base sm:text-lg md:text-xl text-[#F9DFD8] max-w-xl font-normal pt-2 leading-relaxed"
           >
-            اپنی پسند، رازداری اور باہمی رضامندی کے ساتھ شادی کا رشتہ تلاش کریں۔
+            ہم سفر معذوری کے ساتھ زندگی گزارنے والے بالغ افراد کے لیے شادی کے تعارف کی ایک محدود اور باوقار کوشش ہے۔
+          </p>
+
+          <p className="text-xs sm:text-sm text-[#E8C2B8] max-w-lg leading-normal">
+            رکنیت ذاتی جائزے اور قابلِ اعتماد حقیقی حوالوں سے تصدیق کے بعد منظور کی جاتی ہے۔ صرف دستاویزات منظوری کے لیے کافی نہیں۔
           </p>
 
           <div className="pt-4 flex flex-wrap gap-4 items-center">
@@ -49,14 +52,14 @@ export default function HeroSection() {
               href="/auth/signup"
               className="px-8 py-3 text-base sm:text-lg font-bold text-[#45071A] bg-white hover:bg-[#FFF5EC] rounded-full transition-all shadow-md active:scale-95"
             >
-              اپنا پروفائل بنائیں
+              رکنیت کی درخواست دیں
             </Link>
             
             <a
               href="#steps"
               className="px-8 py-3 text-base sm:text-lg font-semibold text-white border-2 border-white/90 hover:bg-white/10 rounded-full transition-all active:scale-95"
             >
-              طریقہ جانیں
+              طریقہ کار جانیں
             </a>
           </div>
         </div>

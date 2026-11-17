@@ -12,9 +12,17 @@ export default function WelcomeSection() {
             <br />
             اپنی کہانی ہے
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-[#5F2436] leading-loose max-w-lg">
-            پہلی یا دوبارہ شادی کے خواہش مند بالغ افراد کو خوش آمدید۔
+          <p className="text-base sm:text-lg text-[#5F2436] leading-relaxed max-w-lg">
+            معذوری کے ساتھ زندگی گزارنے والے تمام بالغ افراد—خواہ غیر شادی شدہ ہوں، طلاق یافتہ ہوں، خلع یافتہ ہوں یا بیوہ—باوقار رشتے کے لیے خوش آمدید۔
           </p>
+          <div className="bg-white/80 p-4 rounded-xl border border-[#850E35]/15 max-w-lg space-y-2">
+            <p className="text-xs sm:text-sm text-[#3D0A1C] font-semibold">
+              صرف بیوگی، طلاق یا بڑی عمر کا ہونا اکیلے رکنیت کا حقدار نہیں بناتا؛ ہم سفر کی رکنیت کے لیے خود معذوری کے ساتھ زندگی گزارنا لازمی ہے۔
+            </p>
+            <p className="text-xs text-[#6F3849]">
+              ہم تیزی سے اضافے کے بجائے انفرادی تصدیق شدہ اور محفوظ تعارف کو ترجیح دیتے ہیں۔
+            </p>
+          </div>
         </div>
 
         {/* Left side (RTL second): Family/Adults Illustration Image */}

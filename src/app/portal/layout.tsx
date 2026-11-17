@@ -14,7 +14,8 @@ import {
   LogOut, 
   ShieldAlert,
   Menu,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 
@@ -44,16 +45,31 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
       if (prof) {
         setProfile(prof as Profile);
+
+        const isApproved = prof.status === 'approved' && !prof.is_suspended;
+        const isAdmin = prof.role === 'admin';
+
+        // Strict route guard: non-approved applicants cannot access directory, requests, or messages
+        if (!isApproved && !isAdmin) {
+          const restrictedPrefixes = ['/portal/browse', '/portal/requests', '/portal/messages'];
+          if (restrictedPrefixes.some((p) => pathname.startsWith(p))) {
+            router.push('/portal/profile');
+            return;
+          }
+        }
       }
 
-      // Check pending received requests
-      const { count } = await supabase
-        .from('interest_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending');
+      // Check pending received requests only if approved
+      if (prof?.status === 'approved') {
+        const { count } = await supabase
+          .from('interest_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('receiver_id', user.id)
+          .eq('status', 'pending');
 
-      setPendingRequestsCount(count || 0);
+        setPendingRequestsCount(count || 0);
+      }
+
       setLoading(false);
     }
 
@@ -65,18 +81,25 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     router.push('/');
   };
 
-  const navLinks = [
-    { href: '/portal/profile', label: 'میرا پروفائل', icon: User },
-    { href: '/portal/browse', label: 'رشتے تلاش کریں', icon: Search },
-    { 
-      href: '/portal/requests', 
-      label: 'دلچسپی کی درخواستیں', 
-      icon: HeartHandshake,
-      badge: pendingRequestsCount > 0 ? pendingRequestsCount : null
-    },
-    { href: '/portal/messages', label: 'نجی گفتگو', icon: MessageSquare },
-    { href: '/portal/settings', label: 'رازداری اور سیٹنگز', icon: Settings },
-  ];
+  const isApproved = (profile?.status === 'approved' && !profile?.is_suspended) || profile?.role === 'admin';
+
+  const navLinks = isApproved
+    ? [
+        { href: '/portal/profile', label: 'میرا پروفائل اور حیثیت', icon: User },
+        { href: '/portal/browse', label: 'رشتے تلاش کریں', icon: Search },
+        { 
+          href: '/portal/requests', 
+          label: 'دلچسپی کی درخواستیں', 
+          icon: HeartHandshake,
+          badge: pendingRequestsCount > 0 ? pendingRequestsCount : null
+        },
+        { href: '/portal/messages', label: 'نجی گفتگو', icon: MessageSquare },
+        { href: '/portal/settings', label: 'سیٹنگز اور رازداری', icon: Settings },
+      ]
+    : [
+        { href: '/portal/profile', label: 'درخواست اور تصدیقی اسٹیٹس', icon: FileText },
+        { href: '/portal/settings', label: 'اکاؤنٹ سیٹنگز', icon: Settings },
+      ];
 
   if (loading) {
     return (
@@ -89,7 +112,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   return (
     <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
       {/* Top Bar */}
-      <header className="bg-white border-b border-[#E8DFD5] sticky top-0 z-40 shadow-2xs">
+      <header className="bg-white border-b border-[#E8DFD5] sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           
           <div className="flex items-center gap-4">
@@ -103,7 +126,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               />
             </Link>
             <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 bg-[#FCE6EC] text-[#850E35] rounded-full">
-              ممبر پورٹل
+              {isApproved ? 'منظور شدہ ممبر پورٹل' : 'درخواست گزار پورٹل'}
             </span>
           </div>
 
@@ -118,7 +141,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   href={link.href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all relative ${
                     isActive
-                      ? 'bg-[#850E35] text-white shadow-2xs'
+                      ? 'bg-[#850E35] text-white shadow-xs'
                       : 'text-[#4A2633] hover:bg-[#F7EFE9]'
                   }`}
                 >

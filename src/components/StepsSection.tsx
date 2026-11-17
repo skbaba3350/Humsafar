@@ -1,28 +1,28 @@
-import { User, Mail, MessageCircle } from 'lucide-react';
+import { FileCheck, UserCheck, HeartHandshake } from 'lucide-react';
 
 export default function StepsSection() {
   const steps = [
     {
       id: 1,
-      icon: User,
-      title: 'اپنا تعارف بنائیں',
-      desc: 'اپنی بنیادی معلومات اور پسند کی ترجیحات کے ساتھ پروفائل تیار کریں۔',
+      icon: FileCheck,
+      title: 'درخواست اور حقیقی حوالہ',
+      desc: 'اپنی بنیادی معلومات، معذوری کی نوعیت اور کم از کم ایک قابلِ اعتماد حقیقی واقف کار کا حوالہ درج کریں۔',
       bg: 'bg-[#FCE6EC]',
       iconColor: 'text-[#850E35]',
     },
     {
       id: 2,
-      icon: Mail,
-      title: 'دلچسپی کی درخواست بھیجیں',
-      desc: 'مناسب پروفائل دیکھ کر اپنی دلچسپی کی درخواست بھیجیں۔',
+      icon: UserCheck,
+      title: 'انفرادی جائزہ اور تصدیق',
+      desc: 'ایڈمن براہِ راست رابطے کے ذریعے اہلیت اور حوالے کی ساکھ کی خود مختار تصدیق مکمل کرتا ہے۔',
       bg: 'bg-[#FDECE2]',
       iconColor: 'text-[#C65D21]',
     },
     {
       id: 3,
-      icon: MessageCircle,
-      title: 'دونوں کی رضامندی سے بات شروع کریں',
-      desc: 'دلچسپی کی تصدیق کے بعد باہمی رضامندی سے گفتگو کا آغاز کریں۔',
+      icon: HeartHandshake,
+      title: 'باہمی رضامندی سے تعارف',
+      desc: 'منظوری اور پروفائل شائع کرنے کے بعد آپ دیگر ارکان سے مکمل رازداری کے ساتھ رابطہ کر سکتے ہیں۔',
       bg: 'bg-[#EFE8F7]',
       iconColor: 'text-[#6B3FA0]',
     },
@@ -34,11 +34,11 @@ export default function StepsSection() {
         
         {/* Section Title with golden divider lines */}
         <div className="flex items-center justify-center gap-4 mb-12 sm:mb-16">
-          <span className="hidden sm:inline-block h-px w-20 md:w-32 bg-linear-to-r from-transparent to-[#D4AF37]"></span>
+          <span className="hidden sm:inline-block h-px w-20 md:w-32 bg-gradient-to-r from-transparent to-[#D4AF37]"></span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#3D1D28] text-center">
-            رشتہ تلاش کرنے کا آسان طریقہ
+            رکنیت اور تعارف کا باوقار طریقہ
           </h2>
-          <span className="hidden sm:inline-block h-px w-20 md:w-32 bg-linear-to-l from-transparent to-[#D4AF37]"></span>
+          <span className="hidden sm:inline-block h-px w-20 md:w-32 bg-gradient-to-l from-transparent to-[#D4AF37]"></span>
         </div>
 
         {/* Three step cards */}
